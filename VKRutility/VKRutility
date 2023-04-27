@@ -1,0 +1,139 @@
+#!/bin/bash
+
+REPO1="https://formulae.brew.sh/api/cask/yandex-cloud-cli.json"
+REPO2="https://storage.yandexcloud.net/yandexcloud-yc/install.sh"
+
+NAME1=yc
+
+usage() {
+  cat <<EOF
+
+Usage: 
+    $(basename "${BASH_SOURCE[0]}") [-h] [-c] value1 [-t] value2
+
+Available options:
+    -h, --help      Print this help and exit
+    -t, --template  Path to the template with the list of tools that will be installed
+    -c, --config    Path to the configuration file main.tf
+EOF
+  exit
+}
+
+ifUsingHelp() {
+    if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        usage
+        exit 0
+    fi
+ }
+
+checkVersion() {
+    $NAME1 version | awk '{print $4}'
+}
+
+checkLatestVersion() {
+    if [ $REPO1 != "terraform" ]; then
+         curl -sSL $REPO1 | jq -r ".version"
+    else
+         curl -sSL $REPO1 | jq -r ".tag_name"
+    fi
+}
+
+delimitationLine() {
+    echo ""
+    echo "-----------------------------------------------------------------------------------------------------------" 
+    echo ""
+}
+
+isInstalled() {
+    echo "Checking if the "$NAME1 "is installed..."
+    if [ $(command -v $NAME1) ]; then
+        echo "The programm "$NAME1" is allready installed"
+    else
+        echo "Error: "$NAME1" is not installed."
+        delimitationLine
+        installProgram
+    fi
+    delimitationLine
+}
+
+checkCurrentVersion() {
+    v1=$(checkVersion)
+    v2=$(checkLatestVersion)
+
+    echo -n "Checking the current version of the "$NAME1": "
+    checkVersion
+    delimitationLine
+    echo -n "Checking the latest version of the "$NAME1": "
+    checkLatestVersion
+    delimitationLine
+
+    if [ v1 == v2  ]; then
+        echo "The latest version of the "$NAME1 "is allready installed."
+	checkVersion
+    else
+        echo "Need to update "$NAME"to the latest version" $v2
+        delimitationLine
+        installProgram
+    fi
+    delimitationLine
+}
+
+installProgram() {
+    echo "Installing "$NAME1"..."
+    echo ""
+
+    if [ $NAME1 != "terraform"  ]; then
+	 curl -sSL $REPO2 | bash
+	 echo ""
+	 echo "Starting new shell..."
+    else 
+        installTerraform
+    fi
+}
+
+installTerraform() {
+    sudo apt-get install terraform
+    echo ""
+    if [ $(command -v $NAME1 ) ]; then
+        echo "The program "$NAME1" installed correctly."
+    else
+        getError
+    fi
+    delimitationLine
+}
+
+updateSystem() {
+    echo "Updating your system:"
+    sudo apt-get update
+    delimitationLine
+}
+
+getError() {
+    echo "Need to make update your system..."
+    optionSelection
+    delimitationLine
+    updateSystem
+    installTerraform
+}
+
+optionSelection() {
+    read -p "Do you want to proceed? (yes/no) " yn 
+
+    case $yn in
+        yes ) echo ok, we will proceed;;
+        no ) echo exiting...;
+	    exit 0;;
+        * ) echo invalid response;
+            exit 1;;
+    esac
+}
+
+ifUsingHelp $1
+isInstalled
+checkCurrentVersion
+
+NAME1=terraform
+REPO1="https://api.github.com/repos/hashicorp/terraform/releases/latest"
+
+isInstalled
+checkCurrentVersion
