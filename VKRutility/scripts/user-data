@@ -1,0 +1,22 @@
+#!/bin/bash
+
+export PREP_LOG=/var/log/cloud-init-output.log
+echo "Configuration script has been started" >> $PREP_LOG
+shopt -s extglob
+export CFS_BGN_TS=$(date +%s.%N)
+
+echo "Hello, Dias!" > > /tmp/hello.txt 
+
+installPrograms() {
+    #Function from utility
+}
+
+#Example of installing 
+installScanner() {
+    echo "InstallTrivy Scanner..."
+    sudo curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    echo "The Trivy installed correctly"
+}
+
+installPrograms
+installScanner
