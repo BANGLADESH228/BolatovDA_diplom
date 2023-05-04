@@ -4,6 +4,7 @@ REPO1="https://formulae.brew.sh/api/cask/yandex-cloud-cli.json"
 REPO2="https://storage.yandexcloud.net/yandexcloud-yc/install.sh"
 
 NAME1=yc
+LINUX=checkLinux
 
 usage() {
   cat <<EOF
@@ -27,11 +28,15 @@ ifUsingHelp() {
  }
 
 checkVersion() {
-    $NAME1 version | awk '{print $4}'
+    if [ $NAME1 != "terraform" ]; then
+        $NAME1 version | awk '{print $4}'
+    else
+        $NAME1 version | awk '{print $2}' | head -1
+    fi
 }
 
 checkLatestVersion() {
-    if [ $REPO1 != "terraform" ]; then
+    if [ $NAME1 != "terraform" ]; then
          curl -sSL $REPO1 | jq -r ".version"
     else
          curl -sSL $REPO1 | jq -r ".tag_name"
@@ -78,42 +83,76 @@ checkCurrentVersion() {
     delimitationLine
 }
 
-installProgram() {
-    echo "Installing "$NAME1"..."
-    echo ""
-
+isTerraform() {
     if [ $NAME1 != "terraform"  ]; then
 	 curl -sSL $REPO2 | bash
 	 echo ""
 	 echo "Starting new shell..."
     else 
-        installTerraform
+        isKali
     fi
 }
 
-installTerraform() {
+isKali() {
+    if [ $LINUX  != "Kali GNU/Linux" ]; then
+        installTerraform1
+    else
+        installTerraform2
+    fi
+}
+
+installProgram() {
+    echo "Installing "$NAME1"..."
+    echo ""
+    isTerraform
+}
+
+installTerraform1() {
+    sudo apt install -y gnupg software-properties-common curl
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+    sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+    echo "Need to make update your system..."
+    delimitationLine
+    updateSystem
     sudo apt-get install terraform
     echo ""
     if [ $(command -v $NAME1 ) ]; then
         echo "The program "$NAME1" installed correctly."
     else
-        getError
+        installTerraform2
     fi
     delimitationLine
 }
 
-updateSystem() {
-    echo "Updating your system:"
-    sudo apt-get update
-    delimitationLine
+installTerraform2() {
+    concatVersion
+    getUrl
+    getFile
+    wget -O $(getFile) $(getUrl)
+    sudo unzip $(getFile) -d /usr/local/bin
 }
 
-getError() {
-    echo "Need to make update your system..."
-    optionSelection
-    delimitationLine
-    updateSystem
-    installTerraform
+concatVersion() {
+    v=$(checkLatestVersion)
+    file="${v:1}" 
+    echo $file
+}
+
+getUrl() {
+    version=$(concatVersion)
+    url="https://releases.hashicorp.com/terraform/"
+    file_name1="/terraform_"
+    file_name2="_linux_amd64.zip"
+    file_url="${url}${file}${file_name1}${version}${file_name2}"
+    echo $file_url
+}
+
+getFile() {
+    version=$(concatVersion)
+    file_name1="terraform_"
+    file_name2="_linux_amd64.zip"
+    file_version="${file_name1}${version}${file_name2}"
+    echo $file_version
 }
 
 optionSelection() {
@@ -127,6 +166,23 @@ optionSelection() {
             exit 1;;
     esac
 }
+
+updateSystem() {
+    echo "Updating your system:"
+    sudo apt-get update
+    delimitationLine
+}
+
+checkLinux() {
+    if [ -f /etc/*release* ]; then
+        . /etc/*release*
+        echo $NAME
+    else
+        echo "File /etc/*release* not found!"
+    fi
+}
+
+checkLinux
 
 ifUsingHelp $1
 isInstalled
