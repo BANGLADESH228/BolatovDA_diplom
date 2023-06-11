@@ -182,6 +182,16 @@ checkLinux() {
     fi
 }
 
+createProfileCLI() {
+    echo "Starting to create a CLI profile..."
+    yc init
+    delimitationLine
+    echo "Check your CLI profile settings:"
+    echo ""
+    yc config list
+    delimitationLine
+}
+
 checkLinux
 
 ifUsingHelp $1
@@ -193,3 +203,5 @@ REPO1="https://api.github.com/repos/hashicorp/terraform/releases/latest"
 
 isInstalled
 checkCurrentVersion
+
+createProfileCLI
