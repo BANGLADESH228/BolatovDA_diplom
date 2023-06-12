@@ -11,10 +11,10 @@ terraform {
 }
 
 provider "yandex" {
-  token     = "#"
-  cloud_id  = "#"
-  folder_id = "#"
-  zone      = "#"
+  token = "y0_AgAAAABnfn6MAATuwQAAAADhppCtLyT-CqqGQkypvU81KyXni9ijkAk"
+  cloud_id = "b1g6uflecfrlkgjkorgq"
+  folder_id = "b1gnqb6034hcf5irqh4h"
+  zone = "ru-central1-b"
 }
 
 # ------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ provider "yandex" {
 resource "yandex_compute_instance" "vm-1" {
   name        = "linux-vm-1"
   platform_id = "standard-v3"
-  zone        = "ru-central1-b"
+  zone = "ru-central1-b"
 
   resources {
     cores  = "2"
@@ -57,7 +57,7 @@ resource "yandex_compute_instance" "vm-1" {
 
   metadata = {
     ssh-keys  = "DBA:${file("~/.ssh/id_rsa.pub")}"
-    user_data = "${file("/scripts/user-data")}"
+    #user_data = "${file("/scripts/user-data")}"
   }
 }
 
@@ -68,7 +68,7 @@ resource "yandex_compute_instance" "vm-1" {
 resource "yandex_compute_instance" "vm-2" {
   name        = "linux-vm-2"
   platform_id = "standard-v3"
-  zone        = "ru-central1-b"
+  zone = "ru-central1-b"
 
   resources {
     cores  = "2"
@@ -88,7 +88,7 @@ resource "yandex_compute_instance" "vm-2" {
 
   metadata = {
     ssh-keys  = "ubuntu:${file("~/.ssh/id_rsa.pub")}"
-    user_data = "${file("/scripts/user-data")}"
+    #user_data = "${file("/scripts/user-data")}"
   }
 }
 
@@ -102,7 +102,7 @@ resource "yandex_vpc_network" "network-1" {
 
 resource "yandex_vpc_subnet" "subnet-1" {
   name           = "subnet1"
-  zone           = "ru-central1-b"
+  zone = "ru-central1-b"
   v4_cidr_blocks = ["192.168.10.0/24"]
   network_id     = yandex_vpc_network.network-1.id
 }

@@ -3,7 +3,7 @@
 REPO1="https://formulae.brew.sh/api/cask/yandex-cloud-cli.json"
 REPO2="https://storage.yandexcloud.net/yandexcloud-yc/install.sh"
 
-NAME1=yc
+NAME1=jq
 LINUX=checkLinux
 
 usage() {
@@ -18,6 +18,12 @@ Available options:
     -c, --config    Path to the configuration file main.tf
 EOF
   exit
+}
+
+logger() {
+    log_file="./script.log"
+    > "$log_file"
+    exec > >(tee -a "$log_file") 2>&1
 }
 
 ifUsingHelp() {
@@ -65,6 +71,12 @@ checkCurrentVersion() {
     v1=$(checkVersion)
     v2=$(checkLatestVersion)
 
+    if [ $NAME1 == "yc" ]; then
+        v2=$(echo "$v2" | awk -F. -v OFS=. '{ $2++; print }')
+    else
+        :
+    fi
+
     echo -n "Checking the current version of the "$NAME1": "
     checkVersion
     delimitationLine
@@ -72,11 +84,11 @@ checkCurrentVersion() {
     checkLatestVersion
     delimitationLine
 
-    if [ v1 == v2  ]; then
-        echo "The latest version of the "$NAME1 "is allready installed."
+    if [ $v1 == $v2 ]; then
+        echo -n "The latest version of the "$NAME1 "is allready installed: "
 	checkVersion
     else
-        echo "Need to update "$NAME"to the latest version" $v2
+        echo "Need to update "$NAME1 "to the latest version" $v2
         delimitationLine
         installProgram
     fi
@@ -84,12 +96,15 @@ checkCurrentVersion() {
 }
 
 isTerraform() {
-    if [ $NAME1 != "terraform"  ]; then
-	 curl -sSL $REPO2 | bash
-	 echo ""
-	 echo "Starting new shell..."
-    else 
-        isKali
+    if [[ $NAME1 != "terraform" && $NAME1 != "jq" ]]; then
+	curl -sSL $REPO2 | bash
+	echo ""
+	echo "Starting new shell..."
+    elif [ $NAME1 == "jq" ]; then
+        installJq
+    else
+        #isKali 
+        echo "ITS OK"
     fi
 }
 
@@ -103,8 +118,13 @@ isKali() {
 
 installProgram() {
     echo "Installing "$NAME1"..."
-    echo ""
+    delimitationLine
     isTerraform
+}
+
+installJq() {
+    sudo apt-get install jq
+    jq --version
 }
 
 installTerraform1() {
@@ -174,12 +194,16 @@ updateSystem() {
 }
 
 checkLinux() {
+    delimitationLine
+    echo -n "Checking the installed operating system: "
+
     if [ -f /etc/*release* ]; then
         . /etc/*release*
         echo $NAME
     else
         echo "File /etc/*release* not found!"
     fi
+    delimitationLine
 }
 
 createProfileCLI() {
@@ -187,14 +211,46 @@ createProfileCLI() {
     yc init
     delimitationLine
     echo "Check your CLI profile settings:"
-    echo ""
-    yc config list
+    delimitationLine
+    yc config list 
     delimitationLine
 }
+
+variablesToMain_tf() {
+    output=$(yc config list)
+
+    awk -F': ' '/token/ { printf "s/token *= *\".*\"/token = \"%s\"/g\n", $2 }
+                /cloud-id/ { printf "s/cloud_id *= *\".*\"/cloud_id = \"%s\"/g\n", $2 }
+                /folder-id/ { printf "s/folder_id *= *\".*\"/folder_id = \"%s\"/g\n", $2 }
+                /compute-default-zone/ { printf "s/zone *= *\".*\"/zone = \"%s\"/g\n", $2 }
+  '     <<< "$output" > sed_script.sed
+
+    sed -i -f sed_script.sed main.tf
+    rm sed_script.sed
+}
+
+startTerraform() {
+    echo "Terraform initialisation begins: "
+    terraform init
+    delimitationLine
+    echo "Terraform planning check: "
+    delimitationLine
+    terraform plan
+    delimitationLine
+    echo "Confirm the settings:"
+    delimitationLine
+    terraform apply
+    delimitationLine
+}
+
+logger
 
 checkLinux
 
 ifUsingHelp $1
+isInstalled
+
+NAME1=yc
 isInstalled
 checkCurrentVersion
 
@@ -205,3 +261,5 @@ isInstalled
 checkCurrentVersion
 
 createProfileCLI
+variablesToMain_tf
+startTerraform
