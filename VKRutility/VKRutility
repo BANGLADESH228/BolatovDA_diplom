@@ -5,10 +5,32 @@ REPO2="https://storage.yandexcloud.net/yandexcloud-yc/install.sh"
 
 NAME1=jq
 LINUX=checkLinux
+config_file=""
+
+replace_main_tf() {
+    if [ -f "$config_file" ]; then
+        cp "$config_file" main.tf
+        echo "The $config_file file has been successfully replaced."
+    else
+        echo "The specified $config_file file doesn't exist."
+    fi
+    delimitationLine
+}
+
+check_for_arg() {
+    if [ -z "$config_file" ]; then
+        echo "Argument referring to the user configuration file isn't passed!"
+        echo "Therefore, a standard configuration file will be used."
+    else
+        echo "A custom configuration file will be used: $config_file"
+        echo "Attention check the file for errors!"
+        replace_main_tf "$config_file"
+    fi
+    delimitationLine
+}
 
 usage() {
   cat <<EOF
-
 Usage: 
     $(basename "${BASH_SOURCE[0]}") [-h] [-c] value1 [-t] value2
 
@@ -17,6 +39,7 @@ Available options:
     -t, --template  Path to the template with the list of tools that will be installed
     -c, --config    Path to the configuration file main.tf
 EOF
+    delimitationLine
   exit
 }
 
@@ -26,12 +49,17 @@ logger() {
     exec > >(tee -a "$log_file") 2>&1
 }
 
-ifUsingHelp() {
-    if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-        usage
-        exit 0
+isInstalled() {
+    echo "Checking if the "$NAME1 "is installed..."
+    if [ $(command -v $NAME1) ]; then
+        echo "The programm "$NAME1" is allready installed"
+    else
+        echo "Error: "$NAME1" is not installed."
+        delimitationLine
+        installProgram
     fi
- }
+    delimitationLine
+}
 
 checkVersion() {
     if [ $NAME1 != "terraform" ]; then
@@ -47,24 +75,6 @@ checkLatestVersion() {
     else
          curl -sSL $REPO1 | jq -r ".tag_name"
     fi
-}
-
-delimitationLine() {
-    echo ""
-    echo "-----------------------------------------------------------------------------------------------------------" 
-    echo ""
-}
-
-isInstalled() {
-    echo "Checking if the "$NAME1 "is installed..."
-    if [ $(command -v $NAME1) ]; then
-        echo "The programm "$NAME1" is allready installed"
-    else
-        echo "Error: "$NAME1" is not installed."
-        delimitationLine
-        installProgram
-    fi
-    delimitationLine
 }
 
 checkCurrentVersion() {
@@ -187,6 +197,12 @@ optionSelection() {
     esac
 }
 
+delimitationLine() {
+    echo ""
+    echo "-----------------------------------------------------------------------------------------------------------" 
+    echo ""
+}
+
 updateSystem() {
     echo "Updating your system:"
     sudo apt-get update
@@ -194,7 +210,6 @@ updateSystem() {
 }
 
 checkLinux() {
-    delimitationLine
     echo -n "Checking the installed operating system: "
 
     if [ -f /etc/*release* ]; then
@@ -210,7 +225,7 @@ createProfileCLI() {
     echo "Starting to create a CLI profile..."
     yc init
     delimitationLine
-    echo "Check your CLI profile settings:"
+    echo "Checking your CLI profile settings:"
     delimitationLine
     yc config list 
     delimitationLine
@@ -243,11 +258,23 @@ startTerraform() {
     delimitationLine
 }
 
+delimitationLine
 logger
 
-checkLinux
+checkArgs() {
+while getopts "c:h" opt; do
+    case $opt in
+        c) config_file=$OPTARG ;;
+        h) usage ;;
+        \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
+    esac
+done
+}
 
-ifUsingHelp $1
+checkArgs $@
+check_for_arg
+
+checkLinux
 isInstalled
 
 NAME1=yc
