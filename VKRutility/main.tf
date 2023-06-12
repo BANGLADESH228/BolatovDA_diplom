@@ -11,10 +11,10 @@ terraform {
 }
 
 provider "yandex" {
-  token = "y0_AgAAAABnfn6MAATuwQAAAADhppCtLyT-CqqGQkypvU81KyXni9ijkAk"
-  cloud_id = "b1g6uflecfrlkgjkorgq"
-  folder_id = "b1gnqb6034hcf5irqh4h"
-  zone = "ru-central1-b"
+  token     = var.token
+  cloud_id  = var.cloud_id
+  folder_id = var.folder_id
+  zone      = var.zone
 }
 
 # ------------------------------------------------------------------------------
@@ -22,18 +22,18 @@ provider "yandex" {
 # ------------------------------------------------------------------------------
 
 resource "yandex_compute_instance" "vm-1" {
-  name        = "linux-vm-1"
-  platform_id = "standard-v3"
-  zone = "ru-central1-b"
+  name          = var.vm1_name
+  platform_id   = var.vm1_platform_id
+  zone          = var.zone
 
   resources {
-    cores  = "2"
-    memory = "2"
+    cores  = var.vm1_cores
+    memory = var.vm1_memory
   }
 
   boot_disk {
     initialize_params {
-      image_id = "fd8o41nbel1uqngk0op2"
+      image_id = var.vm1_image_id
     }
   }
 
@@ -42,22 +42,8 @@ resource "yandex_compute_instance" "vm-1" {
     nat       = true
   }
 
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "sudo apt-get update"
-  #   ]
-
-  #   connection {
-  #     type     = "ssh"
-  #     user     = "debian"
-  #     private_key = file("~/.ssh/id_rsa")
-  #     host     = yandex_compute_instance.vm-1.network_interface.0.ip_address
-  #   }
-  # }
-
   metadata = {
-    ssh-keys  = "DBA:${file("~/.ssh/id_rsa.pub")}"
-    #user_data = "${file("/scripts/user-data")}"
+    ssh-keys = "DBA:${file("~/.ssh/id_rsa.pub")}"
   }
 }
 
@@ -66,18 +52,18 @@ resource "yandex_compute_instance" "vm-1" {
 # ------------------------------------------------------------------------------
 
 resource "yandex_compute_instance" "vm-2" {
-  name        = "linux-vm-2"
-  platform_id = "standard-v3"
-  zone = "ru-central1-b"
+  name          = var.vm2_name
+  platform_id   = var.vm2_platform_id
+  zone          = var.zone
 
   resources {
-    cores  = "2"
-    memory = "2"
+    cores  = var.vm2_cores
+    memory = var.vm2_memory
   }
 
   boot_disk {
     initialize_params {
-      image_id = "fd82sqrj4uk9j7vlki3q"
+      image_id = var.vm2_image_id
     }
   }
 
@@ -87,8 +73,7 @@ resource "yandex_compute_instance" "vm-2" {
   }
 
   metadata = {
-    ssh-keys  = "ubuntu:${file("~/.ssh/id_rsa.pub")}"
-    #user_data = "${file("/scripts/user-data")}"
+    ssh-keys = "ubuntu:${file("~/.ssh/id_rsa.pub")}"
   }
 }
 
@@ -97,13 +82,13 @@ resource "yandex_compute_instance" "vm-2" {
 # ------------------------------------------------------------------------------
 
 resource "yandex_vpc_network" "network-1" {
-  name = "network1"
+  name = var.network_name
 }
 
 resource "yandex_vpc_subnet" "subnet-1" {
-  name           = "subnet1"
-  zone = "ru-central1-b"
-  v4_cidr_blocks = ["192.168.10.0/24"]
+  name           = var.subnet_name
+  zone           = var.zone
+  v4_cidr_blocks = [var.subnet_cidr]
   network_id     = yandex_vpc_network.network-1.id
 }
 

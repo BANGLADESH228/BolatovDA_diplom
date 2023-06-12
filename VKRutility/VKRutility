@@ -4,17 +4,31 @@ REPO1="https://formulae.brew.sh/api/cask/yandex-cloud-cli.json"
 REPO2="https://storage.yandexcloud.net/yandexcloud-yc/install.sh"
 
 NAME1=jq
-LINUX=checkLinux
+LINUX=check_linux
 config_file=""
 
-replace_main_tf() {
-    if [ -f "$config_file" ]; then
-        cp "$config_file" main.tf
-        echo "The $config_file file has been successfully replaced."
-    else
-        echo "The specified $config_file file doesn't exist."
-    fi
-    delimitationLine
+#-----------------------------------------------------------------------------------------------------------
+
+# Recording to a log file
+
+logger() {
+    log_file="./script.log"
+    > "$log_file"
+    exec > >(tee -a "$log_file") 2>&1
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Checking arguments and OC
+
+check_args() {
+    while getopts "c:h" opt; do
+        case $opt in
+            c) config_file=$OPTARG ;;
+            h) usage ;;
+            \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
+        esac
+    done
 }
 
 check_for_arg() {
@@ -26,190 +40,10 @@ check_for_arg() {
         echo "Attention check the file for errors!"
         replace_main_tf "$config_file"
     fi
-    delimitationLine
+    delimitation_line
 }
 
-usage() {
-  cat <<EOF
-Usage: 
-    $(basename "${BASH_SOURCE[0]}") [-h] [-c] value1 [-t] value2
-
-Available options:
-    -h, --help      Print this help and exit
-    -t, --template  Path to the template with the list of tools that will be installed
-    -c, --config    Path to the configuration file main.tf
-EOF
-    delimitationLine
-  exit
-}
-
-logger() {
-    log_file="./script.log"
-    > "$log_file"
-    exec > >(tee -a "$log_file") 2>&1
-}
-
-isInstalled() {
-    echo "Checking if the "$NAME1 "is installed..."
-    if [ $(command -v $NAME1) ]; then
-        echo "The programm "$NAME1" is allready installed"
-    else
-        echo "Error: "$NAME1" is not installed."
-        delimitationLine
-        installProgram
-    fi
-    delimitationLine
-}
-
-checkVersion() {
-    if [ $NAME1 != "terraform" ]; then
-        $NAME1 version | awk '{print $4}'
-    else
-        $NAME1 version | awk '{print $2}' | head -1
-    fi
-}
-
-checkLatestVersion() {
-    if [ $NAME1 != "terraform" ]; then
-         curl -sSL $REPO1 | jq -r ".version"
-    else
-         curl -sSL $REPO1 | jq -r ".tag_name"
-    fi
-}
-
-checkCurrentVersion() {
-    v1=$(checkVersion)
-    v2=$(checkLatestVersion)
-
-    if [ $NAME1 == "yc" ]; then
-        v2=$(echo "$v2" | awk -F. -v OFS=. '{ $2++; print }')
-    else
-        :
-    fi
-
-    echo -n "Checking the current version of the "$NAME1": "
-    checkVersion
-    delimitationLine
-    echo -n "Checking the latest version of the "$NAME1": "
-    checkLatestVersion
-    delimitationLine
-
-    if [ $v1 == $v2 ]; then
-        echo -n "The latest version of the "$NAME1 "is allready installed: "
-	checkVersion
-    else
-        echo "Need to update "$NAME1 "to the latest version" $v2
-        delimitationLine
-        installProgram
-    fi
-    delimitationLine
-}
-
-isTerraform() {
-    if [[ $NAME1 != "terraform" && $NAME1 != "jq" ]]; then
-	curl -sSL $REPO2 | bash
-	echo ""
-	echo "Starting new shell..."
-    elif [ $NAME1 == "jq" ]; then
-        installJq
-    else
-        #isKali 
-        echo "ITS OK"
-    fi
-}
-
-isKali() {
-    if [ $LINUX  != "Kali GNU/Linux" ]; then
-        installTerraform1
-    else
-        installTerraform2
-    fi
-}
-
-installProgram() {
-    echo "Installing "$NAME1"..."
-    delimitationLine
-    isTerraform
-}
-
-installJq() {
-    sudo apt-get install jq
-    jq --version
-}
-
-installTerraform1() {
-    sudo apt install -y gnupg software-properties-common curl
-    curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-    sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-    echo "Need to make update your system..."
-    delimitationLine
-    updateSystem
-    sudo apt-get install terraform
-    echo ""
-    if [ $(command -v $NAME1 ) ]; then
-        echo "The program "$NAME1" installed correctly."
-    else
-        installTerraform2
-    fi
-    delimitationLine
-}
-
-installTerraform2() {
-    concatVersion
-    getUrl
-    getFile
-    wget -O $(getFile) $(getUrl)
-    sudo unzip $(getFile) -d /usr/local/bin
-}
-
-concatVersion() {
-    v=$(checkLatestVersion)
-    file="${v:1}" 
-    echo $file
-}
-
-getUrl() {
-    version=$(concatVersion)
-    url="https://releases.hashicorp.com/terraform/"
-    file_name1="/terraform_"
-    file_name2="_linux_amd64.zip"
-    file_url="${url}${file}${file_name1}${version}${file_name2}"
-    echo $file_url
-}
-
-getFile() {
-    version=$(concatVersion)
-    file_name1="terraform_"
-    file_name2="_linux_amd64.zip"
-    file_version="${file_name1}${version}${file_name2}"
-    echo $file_version
-}
-
-optionSelection() {
-    read -p "Do you want to proceed? (yes/no) " yn 
-
-    case $yn in
-        yes ) echo ok, we will proceed;;
-        no ) echo exiting...;
-	    exit 0;;
-        * ) echo invalid response;
-            exit 1;;
-    esac
-}
-
-delimitationLine() {
-    echo ""
-    echo "-----------------------------------------------------------------------------------------------------------" 
-    echo ""
-}
-
-updateSystem() {
-    echo "Updating your system:"
-    sudo apt-get update
-    delimitationLine
-}
-
-checkLinux() {
+check_linux() {
     echo -n "Checking the installed operating system: "
 
     if [ -f /etc/*release* ]; then
@@ -218,20 +52,167 @@ checkLinux() {
     else
         echo "File /etc/*release* not found!"
     fi
-    delimitationLine
+    delimitation_line
 }
 
-createProfileCLI() {
+#-----------------------------------------------------------------------------------------------------------
+
+# Programme installation
+
+check_program_installation() {
+    echo "Checking if the "$NAME1 "is installed..."
+    if [ $(command -v $NAME1) ]; then
+        echo "The programm "$NAME1" is allready installed"
+    else
+        echo "Error: "$NAME1" is not installed."
+        delimitation_line
+        installation_preparation
+    fi
+    delimitation_line
+}
+
+installation_preparation() {
+    echo "Installing "$NAME1"..."
+    delimitation_line
+    terraform_check
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Checking the versions
+
+check_version() {
+    if [ $NAME1 != "terraform" ]; then
+        $NAME1 version | awk '{print $4}'
+    else
+        $NAME1 version | awk '{print $2}' | head -1
+    fi
+}
+
+check_latest_version() {
+    if [ $NAME1 != "terraform" ]; then
+         curl -sSL $REPO1 | jq -r ".version"
+    else
+         curl -sSL $REPO1 | jq -r ".tag_name"
+    fi
+}
+
+check_current_version() {
+    v1=$(check_version)
+    v2=$(check_latest_version)
+
+    if [ $NAME1 == "yc" ]; then
+        v2=$(echo "$v2" | awk -F. -v OFS=. '{ $2++; print }')
+    else
+        :
+    fi
+
+    echo -n "Checking the current version of the "$NAME1": "
+    check_version
+    delimitation_line
+    echo -n "Checking the latest version of the "$NAME1": "
+    check_latest_version
+    delimitation_line
+
+    if [ $v1 == $v2 ]; then
+        echo -n "The latest version of the "$NAME1 "is allready installed: "
+	check_version
+    else
+        echo "Need to update "$NAME1 "to the latest version" $v2
+        delimitation_line
+        installation_preparation
+    fi
+    delimitation_line
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Checking installed programme: Jq
+
+install_jq() {
+    sudo apt-get install jq
+    jq --version
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Checking installed programme: terraform
+
+terraform_check() {
+    if [[ $NAME1 != "terraform" && $NAME1 != "jq" ]]; then
+	    curl -sSL $REPO2 | bash
+	    echo ""
+	    echo "Starting new shell..."
+    elif [ $NAME1 == "jq" ]; then
+        install_jq
+    else
+        #kali_linux_check 
+        echo "ITS OK"
+    fi
+}
+
+install_terraform_1() {
+    sudo apt install -y gnupg software-properties-common curl
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+    sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+
+    echo "Need to make update your system..."
+    delimitation_line
+    update_system
+    sudo apt-get install terraform
+    echo ""
+
+    if [ $(command -v $NAME1 ) ]; then
+        echo "The program "$NAME1" installed correctly."
+    else
+        install_terraform_2
+    fi
+    delimitation_line
+}
+
+install_terraform_2() {
+    concat_version
+    get_url
+    get_file
+    wget -O $(get_file) $(get_url)
+    sudo unzip $(get_file) -d /usr/local/bin
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Setting up the Yandex CLI and service account
+
+create_profile_cli() {
     echo "Starting to create a CLI profile..."
     yc init
-    delimitationLine
+    delimitation_line
+
     echo "Checking your CLI profile settings:"
-    delimitationLine
+    delimitation_line
     yc config list 
-    delimitationLine
+    delimitation_line
 }
 
-variablesToMain_tf() {
+create_service_account() {
+    echo "Starting to create a service account..."
+    delimitation_line
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Creating an environment with Terraform
+
+replace_main_tf() {
+    if [ -f "$config_file" ]; then
+        cp "$config_file" main.tf
+        echo "The $config_file file has been successfully replaced."
+    else
+        echo "The specified $config_file file doesn't exist."
+    fi
+    delimitation_line
+}
+
+variables_to_main_tf() {
     output=$(yc config list)
 
     awk -F': ' '/token/ { printf "s/token *= *\".*\"/token = \"%s\"/g\n", $2 }
@@ -244,49 +225,151 @@ variablesToMain_tf() {
     rm sed_script.sed
 }
 
-startTerraform() {
+start_terraform() {
+    terraform_init
+    terraform_plan
+    terraform_apply
+}
+
+terraform_init() {
     echo "Terraform initialisation begins: "
     terraform init
-    delimitationLine
-    echo "Terraform planning check: "
-    delimitationLine
-    terraform plan
-    delimitationLine
-    echo "Confirm the settings:"
-    delimitationLine
-    terraform apply
-    delimitationLine
+    delimitation_line
 }
 
-delimitationLine
+terraform_plan() {
+    echo "Terraform planning check: "
+    delimitation_line
+    terraform plan
+    delimitation_line
+}
+
+terraform_apply() {
+    echo "Confirm the settings: "
+    delimitation_line
+    terraform apply
+    delimitation_line
+}
+
+terraform_destroy() {
+    echo "Removing the environment: "
+    delimitation_line
+    terraform destroy
+    delimitation_line
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# help command
+
+usage() {
+  cat <<EOF
+Usage: 
+    $(basename "${BASH_SOURCE[0]}") [-h] [-c] value1 [-t] value2
+
+Available options:
+    -h, --help      Print this help and exit
+    -t, --template  Path to the template with the list of tools that will be installed
+    -c, --config    Path to the configuration file main.tf
+EOF
+    delimitation_line
+  exit
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Additional functions for version detection
+
+concat_version() {
+    v=$(check_latest_version)
+    file="${v:1}" 
+    echo $file
+}
+
+get_url() {
+    version=$(concat_version)
+    url="https://releases.hashicorp.com/terraform/"
+    file_name1="/terraform_"
+    file_name2="_linux_amd64.zip"
+    file_url="${url}${file}${file_name1}${version}${file_name2}"
+    echo $file_url
+}
+
+get_file() {
+    version=$(concat_version)
+    file_name1="terraform_"
+    file_name2="_linux_amd64.zip"
+    file_version="${file_name1}${version}${file_name2}"
+    echo $file_version
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+# Additional functions for system updates and checks
+
+option_selection() {
+    read -p "Do you want to proceed? (yes/no) " yn 
+
+    case $yn in
+        yes ) echo ok, we will proceed;;
+        no ) echo exiting...;
+	    exit 0;;
+        * ) echo invalid response;
+            exit 1;;
+    esac
+}
+
+delimitation_line() {
+    echo ""
+    echo "-----------------------------------------------------------------------------------------------------------" 
+    echo ""
+}
+
+update_system() {
+    option_selection
+    echo "Updating your system:"
+    sudo apt-get update
+    delimitation_line
+}
+
+kali_linux_check() {
+    if [ $LINUX  != "Kali GNU/Linux" ]; then
+        install_terraform_1
+    else
+        install_terraform_2
+    fi
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
+delimitation_line
+
+# Recording to a log file 
 logger
 
-checkArgs() {
-while getopts "c:h" opt; do
-    case $opt in
-        c) config_file=$OPTARG ;;
-        h) usage ;;
-        \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
-    esac
-done
-}
-
-checkArgs $@
+# Checking arguments and OC
+check_args $@
 check_for_arg
+check_linux
 
-checkLinux
-isInstalled
+# Checking installed programme: Jq
+check_program_installation
 
+# Checking installed programme: yc
 NAME1=yc
-isInstalled
-checkCurrentVersion
+check_program_installation
+check_current_version
 
+# Checking installed programme: terraform
 NAME1=terraform
 REPO1="https://api.github.com/repos/hashicorp/terraform/releases/latest"
+check_program_installation
+check_current_version
 
-isInstalled
-checkCurrentVersion
+# Setting up the Yandex CLI and service account
+create_profile_cli
+create_service_account
 
-createProfileCLI
-variablesToMain_tf
-startTerraform
+# Creating an environment with Terraform
+variables_to_main_tf
+start_terraform
