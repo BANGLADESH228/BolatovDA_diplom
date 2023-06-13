@@ -38,9 +38,20 @@ check_for_arg() {
     else
         echo "A custom configuration file will be used: $config_file"
         echo "Attention check the file for errors!"
-        replace_main_tf "$config_file"
+        replace_variables_tf "$config_file"
     fi
     delimitation_line
+}
+
+replace_variables_tf() {
+    delimitation_line
+
+    if [ -f "$config_file" ]; then
+        cp "$config_file" variables.tf
+        echo "The $config_file file has been successfully replaced."
+    else
+        echo "The specified $config_file file doesn't exist."
+    fi
 }
 
 check_linux() {
@@ -116,7 +127,7 @@ check_current_version() {
 
     if [ $v1 == $v2 ]; then
         echo -n "The latest version of the "$NAME1 "is allready installed: "
-	check_version
+        check_version
     else
         echo "Need to update "$NAME1 "to the latest version" $v2
         delimitation_line
@@ -140,9 +151,9 @@ install_jq() {
 
 terraform_check() {
     if [[ $NAME1 != "terraform" && $NAME1 != "jq" ]]; then
-	    curl -sSL $REPO2 | bash
-	    echo ""
-	    echo "Starting new shell..."
+            curl -sSL $REPO2 | bash
+            echo ""
+            echo "Starting new shell..."
     elif [ $NAME1 == "jq" ]; then
         install_jq
     else
@@ -182,48 +193,128 @@ install_terraform_2() {
 
 # Setting up the Yandex CLI and service account
 
-create_profile_cli() {
-    echo "Starting to create a CLI profile..."
+init_yandex_cli() {
+    echo "Starting to init a CLI profile..."
     yc init
     delimitation_line
 
-    echo "Checking your CLI profile settings:"
+    echo "Checking your CLI settings:"
     delimitation_line
     yc config list 
     delimitation_line
 }
 
+service_account_check() {
+    output=$(yc iam service-account list)
+
+    if [[ $output == *"service-accounts"* ]]; then
+        echo "Service account already available!"
+        delimitation_line
+        list_of_service_accounts
+        delimitation_line
+    else
+        echo "Starting to create a service account..."
+        delimitation_line
+        create_service_account
+    fi
+}
+
 create_service_account() {
-    echo "Starting to create a service account..."
+    yc iam service-account create --name user1
+    list_of_service_accounts
     delimitation_line
+
+    echo "Creating an authorised key..."
+    delimitation_line
+    v1=$(get_service_account_id)
+    v2=$(get_folder_name)
+    yc iam key create \
+        --service-account-id $v1 \
+        --folder-name $v2 \
+        --output key.json
+    delimitation_line
+ 
+    echo "Creating a CLI profile..."
+    delimitation_line
+    yc config profile create terraform-user
+    delimitation_line
+    set_profile_config
+}
+
+set_profile_config() {
+    v1=$(get_cloud_id)
+    v2=$(get_folder_id)
+
+    echo "Setting the profile configuration..."
+
+    yc config set service-account-key key.json
+    yc config set cloud-id $v1
+    yc config set folder-id $v2
+    delimitation_line
+
+    export YC_TOKEN=$(yc iam create-token)
+    export YC_CLOUD_ID=$(yc config get cloud-id)
+    export YC_FOLDER_ID=$(yc config get folder-id)
+}
+
+get_service_account_id() {
+    yc iam service-account list | awk '{print $2}' | head -4 | tail -n 1
+}
+
+get_folder_name() {
+    yc resource-manager folder list | awk '{print $4}' | head -4 | tail -n 1
+}
+
+get_cloud_id() {
+    yc config list | awk '{print $2}' | head -2 | tail -n 1
+}
+
+get_folder_id() {
+    yc config list | awk '{print $2}' | head -3 | tail -n 1
+}
+
+list_of_service_accounts() {
+    yc iam service-account list
 }
 
 #-----------------------------------------------------------------------------------------------------------
 
 # Creating an environment with Terraform
 
-replace_main_tf() {
-    if [ -f "$config_file" ]; then
-        cp "$config_file" main.tf
-        echo "The $config_file file has been successfully replaced."
-    else
-        echo "The specified $config_file file doesn't exist."
-    fi
-    delimitation_line
-}
-
-variables_to_main_tf() {
+variables_to_variables_tf() {
     output=$(yc config list)
 
-    awk -F': ' '/token/ { printf "s/token *= *\".*\"/token = \"%s\"/g\n", $2 }
-                /cloud-id/ { printf "s/cloud_id *= *\".*\"/cloud_id = \"%s\"/g\n", $2 }
-                /folder-id/ { printf "s/folder_id *= *\".*\"/folder_id = \"%s\"/g\n", $2 }
-                /compute-default-zone/ { printf "s/zone *= *\".*\"/zone = \"%s\"/g\n", $2 }
-  '     <<< "$output" > sed_script.sed
-
-    sed -i -f sed_script.sed main.tf
-    rm sed_script.sed
+    awk -F': ' '/token/ {
+        printf "variable \"token\" {\n"
+        printf "  type        = string\n"
+        printf "  description = \"Yandex Cloud Service Account Token\"\n"
+        printf "  default     = \"%s\"\n", $2
+        printf "}\n"
+    }
+    /cloud-id/ {
+        printf "variable \"cloud_id\" {\n"
+        printf "  type        = string\n"
+        printf "  description = \"Yandex Cloud ID\"\n"
+        printf "  default     = \"%s\"\n", $2
+        printf "}\n"
+    }
+    /folder-id/ {
+        printf "variable \"folder_id\" {\n"
+        printf "  type        = string\n"
+        printf "  description = \"Yandex Cloud Folder ID\"\n"
+        printf "  default     = \"%s\"\n", $2
+        printf "}\n"
+    }
+    /zone/ {
+        printf "variable \"zone\" {\n"
+        printf "  type        = string\n"
+        printf "  description = \"Default Zone for Yandex Cloud Compute Resources\"\n"
+        printf "  default     = \"%s\"\n", $2
+        printf "}\n"
+    }
+    ' <<< "$output" > variables.tf
 }
+
 
 start_terraform() {
     terraform_init
@@ -313,7 +404,7 @@ option_selection() {
     case $yn in
         yes ) echo ok, we will proceed;;
         no ) echo exiting...;
-	    exit 0;;
+            exit 0;;
         * ) echo invalid response;
             exit 1;;
     esac
@@ -367,9 +458,9 @@ check_program_installation
 check_current_version
 
 # Setting up the Yandex CLI and service account
-create_profile_cli
-create_service_account
+init_yandex_cli
+service_account_check
 
 # Creating an environment with Terraform
-variables_to_main_tf
+#variables_to_variables_tf
 start_terraform
