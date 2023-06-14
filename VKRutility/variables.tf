@@ -5,25 +5,25 @@
 variable "token" {
   type        = string
   description = "Yandex Cloud Service Account Token"
-  default     = "#"
+  default     = "y0_AgAAAABnfn6MAATuwQAAAADhppCtLyT-CqqGQkypvU81KyXni9ijkAk"
 }
 
 variable "cloud_id" {
   type        = string
   description = "Yandex Cloud ID"
-  default     = "#"
+  default     = "b1g6uflecfrlkgjkorgq"
 }
 
 variable "folder_id" {
   type        = string
   description = "Yandex Cloud Folder ID"
-  default     = "#"
+  default     = "b1gnqb6034hcf5irqh4h"
 }
 
 variable "zone" {
   type        = string
   description = "Default Zone for Yandex Cloud Compute Resources"
-  default     = "#"
+  default     = "ru-central1-b"
 }
 
 # ------------------------------------------------------------------------------
