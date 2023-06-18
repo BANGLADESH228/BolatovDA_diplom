@@ -107,3 +107,16 @@ output "external_ip_address_vm_1" {
 output "external_ip_address_vm_2" {
   value = yandex_compute_instance.vm-2.network_interface.0.nat_ip_address
 }
+
+# ------------------------------------------------------------------------------
+# Setup VM after Terraform
+# ------------------------------------------------------------------------------
+
+resource "null_resource" "install_script" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      scp -i ~/.ssh/id_rsa.pub setup_vm_after_terraform ubuntu@${yandex_compute_instance.vm-1.network_interface.0.nat_ip_address}:~/setup_vm_after_terraform
+      ssh -i ~/.ssh/id_rsa.pub ubuntu@${yandex_compute_instance.vm-1.network_interface.0.nat_ip_address} 'chmod +x ~/setup_vm_after_terraform && ~/setup_vm_after_terraform'
+    EOT
+  }
+}

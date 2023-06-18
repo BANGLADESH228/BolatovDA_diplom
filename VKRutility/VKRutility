@@ -9,6 +9,91 @@ config_file=""
 
 #-----------------------------------------------------------------------------------------------------------
 
+# Interactive menu
+
+process_selection() {
+    case $1 in
+        1)
+            echo "You have selected option 1"
+            delimitation_line
+            ;;
+        2)
+            echo "You have selected option 2"
+            delimitation_line
+            ;;
+        3)
+            echo "You have selected option 3"
+            delimitation_line
+            ;;
+        *)
+            echo "Incorrect choice!"
+            delimitation_line
+            ;;
+    esac
+}
+
+show_menu() {
+    echo "Select the operating mode:"
+    delimitation_line
+
+    echo "1. Create a new environment"
+    echo "2. Edit the environment"
+    echo "3. Destroy the environment"
+    echo "0. Exit"
+    delimitation_line
+
+    read -p "Select a procedure: " choice
+
+    case $choice in
+        0)
+            echo "Exit..."
+            exit 0
+            ;;
+        3)
+            terraform_destroy
+            ;;
+        2)
+            update_variables_from_file
+            ;;
+        1)
+            process_selection $choice
+            ;;
+        *)
+            echo "Incorrect choice!"
+            show_menu
+            ;;
+    esac
+}
+
+get_variable_value() {
+    read -p "Enter value for $1: " value
+    echo "$value"
+}
+
+update_variables_file() {
+    local var_name=$1
+    local var_value=$(get_variable_value "$var_name")
+    awk -v var="$var_name" -v val="$var_value" '{gsub("^ *default *= *\".*\"", "  default = \"" val "\"", $0); print}' variables.tf > variables.tf.tmp
+    mv variables.tf.tmp variables.tf
+}
+
+update_variables_from_file() {
+    delimitation_line
+    if [ -f "variables.tf" ]; then
+        variables=$(grep -E "variable\s+\"[^}]*\"" variables.tf | awk '{print $2}' | tr -d '"')
+        for var in $variables; do
+            update_variables_file "$var"
+        done
+        echo "Variable values have been updated in variables.tf"
+        delimitation_line
+    else
+        echo "Error: variables.tf file not found!"
+        delimitation_line
+    fi
+}
+
+#-----------------------------------------------------------------------------------------------------------
+
 # Recording to a log file
 
 logger() {
@@ -127,7 +212,7 @@ check_current_version() {
 
     if [ $v1 == $v2 ]; then
         echo -n "The latest version of the "$NAME1 "is allready installed: "
-	check_version
+        check_version
     else
         echo "Need to update "$NAME1 "to the latest version" $v2
         delimitation_line
@@ -151,14 +236,13 @@ install_jq() {
 
 terraform_check() {
     if [[ $NAME1 != "terraform" && $NAME1 != "jq" ]]; then
-	    curl -sSL $REPO2 | bash
-	    echo ""
-	    echo "Starting new shell..."
+            curl -sSL $REPO2 | bash
+            echo ""
+            echo "Starting new shell..."
     elif [ $NAME1 == "jq" ]; then
         install_jq
     else
-        #kali_linux_check 
-        echo "ITS OK"
+        kali_linux_check 
     fi
 }
 
@@ -195,6 +279,7 @@ install_terraform_2() {
 
 init_yandex_cli() {
     echo "Starting to init a CLI profile..."
+    delimitation_line
     yc init
     delimitation_line
 
@@ -331,22 +416,32 @@ terraform_init() {
 terraform_plan() {
     echo "Terraform planning check: "
     delimitation_line
-    terraform plan
+    terraform plan -auto-approve
     delimitation_line
 }
 
 terraform_apply() {
     echo "Confirm the settings: "
     delimitation_line
-    terraform apply
+    terraform apply -auto-approve
     delimitation_line
 }
 
 terraform_destroy() {
-    echo "Removing the environment: "
+    echo "Destroying the environment: "
     delimitation_line
-    terraform destroy
+    terraform destroy -auto-approve
     delimitation_line
+ 
+    rm terraform.tfstate
+    rm terraform.tfstate.backup
+    pause
+}
+
+pause() {
+    read -p "Press Enter to continue..."
+    delimitation_line
+    show_menu
 }
 
 #-----------------------------------------------------------------------------------------------------------
@@ -404,7 +499,7 @@ option_selection() {
     case $yn in
         yes ) echo ok, we will proceed;;
         no ) echo exiting...;
-	    exit 0;;
+            exit 0;;
         * ) echo invalid response;
             exit 1;;
     esac
@@ -428,7 +523,13 @@ kali_linux_check() {
         install_terraform_1
     else
         install_terraform_2
+        :
     fi
+}
+
+print_art() {
+    figlet -f standard -t "VKRutility"
+    delimitation_line
 }
 
 #-----------------------------------------------------------------------------------------------------------
@@ -437,6 +538,10 @@ delimitation_line
 
 # Recording to a log file 
 logger
+
+print_art
+
+show_menu
 
 # Checking arguments and OC
 check_args $@
