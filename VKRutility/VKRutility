@@ -197,19 +197,21 @@ check_current_version() {
     v1=$(check_version)
     v2=$(check_latest_version)
 
-    if [ $NAME1 == "yc" ]; then
-        v2=$(echo "$v2" | awk -F. -v OFS=. '{ $2++; print }')
-    else
-        :
-    fi
-
     echo -n "Checking the current version of the "$NAME1": "
     check_version
     delimitation_line
-    echo -n "Checking the latest version of the "$NAME1": "
-    check_latest_version
-    delimitation_line
 
+    if [ $NAME1 == "yc" ]; then
+        v2=$(echo "$v2" | awk -F. -v OFS=. '{ $2++; print }')
+        echo -n "Checking the latest version of the "$NAME1": "
+        echo "$v2"
+        delimitation_line
+    else
+        echo -n "Checking the latest version of the "$NAME1": "
+        check_latest_version
+        delimitation_line
+    fi
+   
     if [ $v1 == $v2 ]; then
         echo -n "The latest version of the "$NAME1 "is allready installed: "
         check_version
@@ -402,7 +404,7 @@ variables_to_variables_tf() {
 
 
 start_terraform() {
-    terraform_init
+    #terraform_init
     terraform_plan
     terraform_apply
 }
@@ -416,7 +418,7 @@ terraform_init() {
 terraform_plan() {
     echo "Terraform planning check: "
     delimitation_line
-    terraform plan -auto-approve
+    terraform plan
     delimitation_line
 }
 
@@ -520,9 +522,9 @@ update_system() {
 
 kali_linux_check() {
     if [ $LINUX  != "Kali GNU/Linux" ]; then
-        install_terraform_1
-    else
         install_terraform_2
+    else
+        install_terraform_1
         :
     fi
 }
